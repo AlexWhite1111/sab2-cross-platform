@@ -1,18 +1,8 @@
-#define WIN32_LEAN_AND_MEAN
-#define _WINSOCKAPI_
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <winsock2.h>
-#include <Windows.h>
-
 #include <cmath>
 #include <limits>
 #include <algorithm>
 #include <numeric>
 #include <mutex>
-#include <opencv2/opencv.hpp>
-
 #include "AimbotTarget.h"
 
 AimbotTarget::AimbotTarget()

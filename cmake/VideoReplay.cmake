@@ -14,6 +14,7 @@ find_library(SAB2_ONNXRUNTIME_LIBRARY NAMES onnxruntime
 add_executable(sab2_video_replay
     "${SRC_DIR}/portable/video_replay.cpp"
     "${SRC_DIR}/detector/postProcess.cpp"
+    "${SRC_DIR}/mouse/AimbotTarget.cpp"
     "${SRC_DIR}/nodes/node_graph.cpp")
 target_include_directories(sab2_video_replay PRIVATE "${SRC_DIR}")
 target_include_directories(sab2_video_replay SYSTEM PRIVATE

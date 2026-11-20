@@ -58,7 +58,11 @@ def test_replay(executable):
                 assert abs(float(row["confidence"]) - confidence) < 1e-6, row
                 actual_box = tuple(float(row[key]) for key in ("x", "y", "width", "height"))
                 assert actual_box == (x, y, width, height), row
-        print("Verified 3 decoded frames, 6 output detections, and class-aware NMS.")
+        track_ids = {int(row["track_id"]) for row in rows}
+        assert len(track_ids) == 1 and min(track_ids) > 0, rows
+        assert all(row["track_observed"] == "1" for row in rows), rows
+        assert len({(row["track_x"], row["track_y"]) for row in rows}) == 1, rows
+        print("Verified 3 decoded frames, 6 output detections, class-aware NMS and a stable track ID.")
 
 
 if __name__ == "__main__":

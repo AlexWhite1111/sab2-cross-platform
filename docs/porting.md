@@ -4,18 +4,20 @@
 
 公开移植分支从这个上游提交的源码快照起步。应用源码和测试保持上游内容，模型目录中的两个可选二进制权重仍通过[上游该提交的模型目录](https://github.com/SunOner/sunone_aimbot_2/tree/03059d5ed2bc2b30f0140b48c01b8992b3e46ffd/sunone_aimbot_2/depth_models)获取。
 
+用户设备为 Apple M4，验收系统为 macOS 27。CI 使用 GitHub 的 macOS ARM64 runner。M4 的录屏授权、GPU / Neural Engine 分配、输入和外设行为需实机核对。
+
 | 功能 | Windows | macOS Apple Silicon |
 |---|---|---|
-| 节点图计算、工作区序列化、旧版节点迁移 | 上游回归通过 | 已接入独立构建，待验证 |
-| 配置迁移与旧键位编号 | 上游迁移测试通过，86 个 Win32 键位编号与 Windows SDK 一致 | 构建时无需 Win32 头文件，待验证 |
-| 工作流 MCP 协议 | Python 协议回归通过 | 待验证 |
-| 窗口几何计算 | 上游回归通过 | 待验证 |
+| 节点图计算、工作区序列化、旧版节点迁移 | 上游回归通过 | ARM64 CI 回归通过 |
+| 配置迁移与旧键位编号 | 上游迁移测试通过，86 个 Win32 键位编号与 Windows SDK 一致 | ARM64 CI 回归通过 |
+| 工作流 MCP 协议 | Python 协议回归通过 | ARM64 CI 回归通过 |
+| 窗口几何计算 | 上游回归通过 | ARM64 CI 回归通过 |
 | 节点编辑器、热键、透明叠加窗 | 保留上游构建入口，交互待验证 | 待移植 |
 | DXGI / WinRT、虚拟摄像头、UDP | 保留上游逻辑，待实测 | 待移植 |
 | 录制视频回放 | 已接入上游 Vision 节点图，实测见回归记录 | 已接入上游 Vision 节点图，实测见回归记录 |
 | ScreenCaptureKit | 系统专属 API | 待接入 |
 | DirectML / TensorRT / ONNX / Core ML | 保留上游 DirectML/CUDA 构建入口。回放使用 ONNX Runtime CPU | 回放使用 ONNX Runtime CPU。Core ML 可选，依赖支持此提供程序的运行库，尚未验证加速 |
-| 目标跟踪、预测、位移输出 | 节点逻辑由回归覆盖，实时输入与实际外设待实测 | 实时输入和系统输出待接入 |
+| 目标跟踪、预测、位移输出 | 回放复用上游多目标跟踪器。实时预测、位移与实际外设待实测 | 回放复用上游多目标跟踪器。实时预测和系统输出待接入 |
 | 深度遮罩、采集与标注 | 保留上游逻辑，待实测 | 待移植 |
 | 双机和外设 | 保留上游逻辑，待实测 | 待移植 |
 
@@ -37,7 +39,7 @@ ctest --test-dir build-port --output-on-failure
 
 ## 视频回放与检测结果
 
-回放目标 `sab2_video_replay` 使用 OpenCV 4 读视频和预览，使用 ONNX Runtime 运行推理。它复用上游的 YOLO 解码器，以及 Vision 图中的置信度过滤、数量限制、NMS 等节点。当前输入为视频文件和单输入、单输出的 YOLO ONNX。输入张量要求 float32、NCHW、固定宽高。检测结果和每帧处理时间写到标准输出。处理时间从解码完成后开始计时。
+回放目标 `sab2_video_replay` 使用 OpenCV 4 读视频和预览，使用 ONNX Runtime 运行推理。它复用上游的 YOLO 解码器、Vision 图中的置信度过滤、数量限制、NMS 节点，以及多目标跟踪器。当前输入为视频文件和单输入、单输出的 YOLO ONNX。输入张量要求 float32、NCHW、固定宽高。CSV 记录检测框、跟踪 ID、参考点和每帧处理时间。处理时间从解码完成后开始计时。跟踪时间按视频标称帧率计算，读不到帧率时按 60 FPS 回放。
 
 在 macOS ARM64 中安装 OpenCV 和 ONNX Runtime 后，执行：
 
@@ -53,7 +55,7 @@ Windows 使用相同的构建选项，加上 `-DSAB2_PORTABLE_TESTS_ONLY=ON`、O
 
 可以传入 `--preview` 打开检测框预览，按 Esc 退出。若 ONNX Runtime 提供 Core ML，可以传入 `--coreml`。实际分配到 Apple GPU 或 Neural Engine 的模型节点需单独验证。
 
-用 Python 3.12 安装 `onnx==1.19.1` 及 `opencv-python-headless==4.12.0.88` 后，运行 `python tests/video_replay_smoke.py <sab2_video_replay路径>` 校验生成的视频和 ONNX 样例。样例验证三帧解码、六个检测框的坐标和置信度，以及重叠框抑制。它不覆盖真实训练模型精度或鼠标输出。
+用 Python 3.12 安装 `onnx==1.19.1` 及 `opencv-python-headless==4.12.0.88` 后，运行 `python tests/video_replay_smoke.py <sab2_video_replay路径>` 校验生成的视频和 ONNX 样例。样例验证三帧解码、六个检测框的坐标和置信度、重叠框抑制及跟踪 ID 的稳定性。真实训练模型的精度、位移输出和实机权限需另行验证。
 
 ## 实测记录
 
@@ -64,4 +66,4 @@ Windows 使用相同的构建选项，加上 `-DSAB2_PORTABLE_TESTS_ONLY=ON`、O
 - `overlay_window_geometry_regressions`
 - `workflow_mcp_protocol_regressions`
 
-本轮独立构建未加载 GPU 推理库，也未运行桌面应用、屏幕采集、实际输入设备或远端硬件。Windows 桌面版仍走 [上游构建流程](build.md)。
+[双平台 CI](https://github.com/AlexWhite1111/sab2-cross-platform/actions/runs/44699860788) 的 Windows x64 和 macOS ARM64 核心任务均通过 4/4。Windows 桌面版仍走 [上游构建流程](build.md)。本地尝试恢复 DirectML 依赖时出现 NuGet 下载超时，桌面版构建及实时路径尚待验证。

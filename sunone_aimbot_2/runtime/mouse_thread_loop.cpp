@@ -15,6 +15,7 @@
 #include "capture.h"
 #include "mouse.h"
 #include "AimbotTarget.h"
+#include "mouse/node_target_settings.h"
 #include "config.h"
 #include "detection_buffer.h"
 #include "runtime/input_state.h"
@@ -230,16 +231,7 @@ void mouseThreadFunction(MouseThread& mouseThread)
             if(!stream || stream->generation!=controlGeneration) return selected;
             auto& state=selectionStates[nodeKey];
             const int mode=node.kind==NodeGraph::NodeKind::TrackDetections?2:node.kind==NodeGraph::NodeKind::ChooseTarget?1:static_cast<int>(NodeGraph::parameter(node,"mode"));
-            TargetSelectionSettings settings;
-            settings.classPlayer=static_cast<int>(NodeGraph::parameter(node,"class_player"));
-            settings.classHead=static_cast<int>(NodeGraph::parameter(node,"class_head"));
-            settings.applyOffsets=NodeGraph::parameter(node,"legacy_offsets")!=0;
-            settings.bodyOffset=NodeGraph::parameter(node,"body_y_offset");
-            settings.headOffset=NodeGraph::parameter(node,"head_y_offset");
-            settings.filterClasses=NodeGraph::parameter(node,"filter_classes")!=0;
-            settings.preferHead=NodeGraph::parameter(node,"prefer_head")!=0;
-            settings.mergeHeadBody=NodeGraph::parameter(node,"merge_head_body")!=0;
-            settings.maxMissedFrames=static_cast<int>(NodeGraph::parameter(node,"max_missed_frames"));
+            const auto settings=nodeTargetSettings(node);
             const bool disableHeadshot=NodeGraph::parameter(node,"disable_headshot")!=0;
             const auto now=std::chrono::steady_clock::now();
             if(state.version!=stream->version)

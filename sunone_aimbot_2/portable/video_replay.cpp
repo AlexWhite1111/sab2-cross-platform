@@ -1,4 +1,5 @@
 #include "detector/postProcess.h"
+#include "mouse/node_target_settings.h"
 #include "nodes/node_graph.h"
 
 #include <onnxruntime_cxx_api.h>
@@ -15,6 +16,7 @@
 #include <iostream>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -105,17 +107,56 @@ private:
     std::string outputName_;
 };
 
-void report(const NodeGraph::DetectionStream& detections, cv::Mat& preview,
-    std::int64_t index, double timestamp, double processingMs)
+std::optional<LockedTargetInfo> track(const NodeGraph::DetectionFrame& detections, MultiTargetTracker& tracker,
+    const TargetSelectionSettings& settings)
 {
+    std::vector<cv::Rect> boxes;
+    std::vector<int> classes;
+    std::vector<float> confidences;
+    boxes.reserve(detections.objects.size());
+    classes.reserve(detections.objects.size());
+    confidences.reserve(detections.objects.size());
+    for (const auto& detection : detections.objects)
+    {
+        boxes.emplace_back(static_cast<int>(std::lround(detection.x)), static_cast<int>(std::lround(detection.y)),
+            static_cast<int>(std::lround(detection.width)), static_cast<int>(std::lround(detection.height)));
+        classes.push_back(detection.classId);
+        confidences.push_back(static_cast<float>(detection.confidence));
+    }
+    // A zero time point asks the tracker for real time. Use a nonzero epoch for replay.
+    const auto timestamp = Clock::time_point{} + std::chrono::seconds(1) +
+        std::chrono::duration_cast<Clock::duration>(std::chrono::duration<double>(detections.timestampSeconds));
+    tracker.update(boxes, classes, static_cast<int>(detections.width), static_cast<int>(detections.height),
+        false, true, settings, confidences, timestamp);
+    LockedTargetInfo target;
+    if (tracker.getLockedTarget(target))
+        return target;
+    return std::nullopt;
+}
+
+void report(const NodeGraph::DetectionStream& detections, const std::optional<LockedTargetInfo>& target,
+    cv::Mat& preview, std::int64_t index, double timestamp, double processingMs)
+{
+    const auto writeTrack = [&target] {
+        if (target)
+            std::cout << ',' << target->trackId << ',' << target->observedThisFrame << ','
+                << target->target.pivotX << ',' << target->target.pivotY;
+        else
+            std::cout << ",,,,";
+        std::cout << '\n';
+    };
     if (detections->objects.empty())
-        std::cout << index << ',' << timestamp << "," << processingMs << ",,,,,,\n";
+    {
+        std::cout << index << ',' << timestamp << ',' << processingMs << ",,,,,,";
+        writeTrack();
+    }
 
     for (const auto& detection : detections->objects)
     {
         std::cout << index << ',' << timestamp << ',' << processingMs << ',' << detection.classId
             << ',' << detection.confidence << ',' << detection.x << ',' << detection.y
-            << ',' << detection.width << ',' << detection.height << '\n';
+            << ',' << detection.width << ',' << detection.height;
+        writeTrack();
         if (!preview.empty())
         {
             const cv::Rect box(cv::Point(cvRound(detection.x), cvRound(detection.y)),
@@ -123,6 +164,8 @@ void report(const NodeGraph::DetectionStream& detections, cv::Mat& preview,
             cv::rectangle(preview, box, cv::Scalar(0, 255, 0), 2);
         }
     }
+    if (!preview.empty() && target)
+        cv::circle(preview, {cvRound(target->target.pivotX), cvRound(target->target.pivotY)}, 3, {0, 255, 255}, -1);
 }
 
 void replay(const std::string& videoPath, const std::string& modelPath, bool coreml, bool preview)
@@ -148,9 +191,12 @@ void replay(const std::string& videoPath, const std::string& modelPath, bool cor
 
     const double fps = video.get(cv::CAP_PROP_FPS);
     NodeGraph::Context context;
-    context.captureFps = std::isfinite(fps) && fps > 0 ? fps : 0;
+    context.captureFps = std::isfinite(fps) && fps > 0 ? fps : 60;
     context.infer = [&model](int, const auto& packet, const auto& node) { return model.infer(packet, node); };
-    std::cout << "frame,seconds,process_ms,class_id,confidence,x,y,width,height\n" << std::setprecision(9);
+    MultiTargetTracker tracker;
+    const auto selection = nodeTargetSettings(NodeGraph::defaultNode(NodeGraph::NodeKind::TrackDetections, 1));
+    std::cout << "frame,seconds,process_ms,class_id,confidence,x,y,width,height,"
+        "track_id,track_observed,track_x,track_y\n" << std::setprecision(9);
     std::int64_t index = 0;
     while (true)
     {
@@ -164,16 +210,17 @@ void replay(const std::string& videoPath, const std::string& modelPath, bool cor
         packet->height = frame.rows;
         packet->version = index;
         packet->generation = 1;
-        packet->timestampSeconds = context.captureFps > 0 ? index / context.captureFps : 0;
+        packet->timestampSeconds = index / context.captureFps;
         context.elapsedSeconds = packet->timestampSeconds;
         context.center = {frame.cols * 0.5, frame.rows * 0.5};
         context.frame = packet;
         const auto result = graph.evaluateVision(context);
         if (!result.valid || !result.visionDetections)
             throw std::runtime_error("The upstream Vision graph did not publish a detection stream.");
+        const auto target = track(*result.visionDetections, tracker, selection);
         const double ms = std::chrono::duration<double, std::milli>(Clock::now() - started).count();
         cv::Mat annotated = preview ? frame.clone() : cv::Mat{};
-        report(result.visionDetections, annotated, index++, packet->timestampSeconds, ms);
+        report(result.visionDetections, target, annotated, index++, packet->timestampSeconds, ms);
         if (preview)
         {
             cv::imshow("SAB2 video replay", annotated);
