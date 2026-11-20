@@ -1,0 +1,31 @@
+name: Windows DirectML desktop build
+
+on:
+  push:
+    branches: [port/windows-macos]
+    paths:
+      - '.github/workflows/windows-desktop.yml'
+      - 'CMakeLists.txt'
+      - 'cmake/PortableTests.cmake'
+      - 'sunone_aimbot_2/**'
+      - 'tools/**'
+      - 'tests/**'
+
+permissions:
+  contents: read
+
+jobs:
+  directml:
+    runs-on: windows-2022
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Build native desktop application and tests
+        shell: pwsh
+        run: |
+          ./tools/build_dml.ps1 -NonInteractive -OpenCvAlreadyBuilt $false -DownloadOrUpdateNeeded $true
+          if (-not (Test-Path ./build/dml/Release/ai.exe)) {
+            throw 'The Windows desktop executable was not built.'
+          }
+      - name: Test desktop regressions
+        run: ctest --test-dir build/dml -C Release --output-on-failure --no-tests=error
