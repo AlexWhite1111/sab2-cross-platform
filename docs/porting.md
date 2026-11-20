@@ -4,6 +4,8 @@
 
 公开移植分支的初始提交保存了该版本的应用源码和测试。两个可选二进制权重可以从[上游该提交的模型目录](https://github.com/SunOner/sunone_aimbot_2/tree/03059d5ed2bc2b30f0140b48c01b8992b3e46ffd/sunone_aimbot_2/depth_models)获取。
 
+源码交付也移出了上游随附的未签名 `ghub_mouse.dll` 和 `rzctl.dll`，保留其 Windows 适配源码。需要验证对应设备时，通过 CMake 的 `AIMBOT_GHUB_MOUSE_DLL` 或 `AIMBOT_RZCTL_DLL` 指定已有库。
+
 实机验收环境为 Apple M4、macOS 27。CI 使用 [GitHub 的 xcode-27 ARM64 runner](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md)。M4 的录屏授权、GPU / Neural Engine 分配、输入和外设行为需实机核对。
 
 | 功能 | Windows | macOS Apple Silicon |
