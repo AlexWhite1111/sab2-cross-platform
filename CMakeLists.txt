@@ -2,8 +2,19 @@ cmake_minimum_required(VERSION 3.24)
 
 project(sunone_aimbot_2 LANGUAGES C CXX)
 
-if(NOT WIN32)
-    message(FATAL_ERROR "sunone_aimbot_2 currently supports Windows builds only.")
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/sunone_aimbot_2")
+
+option(SAB2_PORTABLE_TESTS_ONLY "Build only the platform-independent upstream regression targets" OFF)
+include(CTest)
+if(BUILD_TESTING)
+    include(cmake/PortableTests.cmake)
+endif()
+if(NOT WIN32 OR SAB2_PORTABLE_TESTS_ONLY)
+    message(STATUS "SAB2 portable core build (desktop application disabled).")
+    return()
 endif()
 
 if(NOT CMAKE_GENERATOR MATCHES "^Ninja")
@@ -13,10 +24,6 @@ endif()
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
-
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(AIMBOT_USE_CUDA "Enable CUDA backend (USE_CUDA)" OFF)
 option(AIMBOT_COPY_RUNTIME_DLLS "Copy required runtime DLLs next to ai.exe after build" ON)
@@ -233,7 +240,6 @@ if(NOT AIMBOT_USE_CUDA)
     endif()
 endif()
 
-set(SRC_DIR "${CMAKE_SOURCE_DIR}/sunone_aimbot_2")
 
 set(AIMBOT_SOURCES
     "${SRC_DIR}/benchmarks/provider_benchmark.cpp"
@@ -556,19 +562,7 @@ if(NOT AIMBOT_USE_CUDA)
 endif()
 message(STATUS "C++/WinRT include: ${AIMBOT_CPPWINRT_INCLUDE_DIR}")
 
-include(CTest)
 if(BUILD_TESTING)
-    find_package(Python3 COMPONENTS Interpreter QUIET)
-    if(Python3_Interpreter_FOUND)
-        add_test(NAME workflow_mcp_protocol_regressions COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/workflow_mcp_tests.py")
-    endif()
-    add_executable(overlay_window_geometry_tests "${CMAKE_SOURCE_DIR}/tests/overlay_window_geometry_tests.cpp")
-    target_include_directories(overlay_window_geometry_tests PRIVATE "${SRC_DIR}")
-    if(MSVC)
-        set_target_properties(overlay_window_geometry_tests PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-        target_compile_options(overlay_window_geometry_tests PRIVATE /W3 /permissive- /EHsc)
-    endif()
-    add_test(NAME overlay_window_geometry_regressions COMMAND overlay_window_geometry_tests)
     # Exercise the real worker and control loop against fake input. This target
     # is backend independent and does not initialize CUDA, ORT or capture.
     add_executable(input_runtime_tests
@@ -604,26 +598,6 @@ if(BUILD_TESTING)
     add_dependencies(input_runtime_tests ai)
     add_test(NAME input_runtime_regressions COMMAND input_runtime_tests)
     set_tests_properties(input_runtime_regressions PROPERTIES TIMEOUT 30)
-    add_executable(node_graph_tests
-        "${CMAKE_SOURCE_DIR}/tests/node_graph_tests.cpp"
-        "${SRC_DIR}/nodes/node_graph.cpp")
-    target_include_directories(node_graph_tests PRIVATE "${SRC_DIR}")
-    if(MSVC)
-        set_target_properties(node_graph_tests PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-        target_compile_options(node_graph_tests PRIVATE /W3 /permissive- /EHsc)
-    endif()
-    add_test(NAME node_graph_regressions COMMAND node_graph_tests)
-    add_executable(node_config_bridge_tests
-        "${CMAKE_SOURCE_DIR}/tests/node_config_bridge_tests.cpp"
-        "${SRC_DIR}/nodes/node_graph.cpp"
-        "${SRC_DIR}/nodes/node_config_bridge.cpp"
-        "${SRC_DIR}/keyboard/keycodes.cpp")
-    target_include_directories(node_config_bridge_tests PRIVATE "${SRC_DIR}" "${SRC_DIR}/config")
-    if(MSVC)
-        set_target_properties(node_config_bridge_tests PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-        target_compile_options(node_config_bridge_tests PRIVATE /W3 /permissive- /EHsc)
-    endif()
-    add_test(NAME node_config_migration COMMAND node_config_bridge_tests)
     add_executable(vision_outputs_tests
         "${CMAKE_SOURCE_DIR}/tests/vision_outputs_tests.cpp"
         "${SRC_DIR}/nodes/preview_image.cpp"
