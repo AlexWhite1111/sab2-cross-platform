@@ -112,7 +112,12 @@ struct ModelDirectory
 {
     std::filesystem::path previous=std::filesystem::current_path();
     std::filesystem::path path=std::filesystem::temp_directory_path()/("sunone_model_seed_"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
-    ModelDirectory(){std::filesystem::create_directories(path/"models");std::filesystem::current_path(path);}
+    ModelDirectory()
+    {
+        std::filesystem::create_directories(path/"models");
+        std::filesystem::current_path(path);
+        path=std::filesystem::current_path();
+    }
     void file(const std::string& name){std::ofstream output(std::filesystem::path("models")/std::filesystem::u8path(name),std::ios::binary);output<<"model fixture";}
     ~ModelDirectory()
     {
