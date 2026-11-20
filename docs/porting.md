@@ -14,10 +14,10 @@
 | 配置迁移与旧键位编号 | 上游迁移测试通过，86 个 Win32 键位编号与 Windows SDK 一致 | ARM64 CI 回归通过 |
 | 工作流 MCP 协议 | Python 协议回归通过 | ARM64 CI 回归通过 |
 | 窗口几何计算 | 上游回归通过 | ARM64 CI 回归通过 |
-| 节点编辑器、热键、透明叠加窗 | 保留上游构建入口，交互待验证 | 待移植 |
+| 节点编辑器、热键、透明叠加窗 | DirectML 桌面版构建成功，输入回归通过。实机交互待验证 | 待移植 |
 | DXGI / WinRT、虚拟摄像头、UDP | 保留上游逻辑，待实测 | 待移植 |
 | 录制视频回放 | 已接入上游 Vision 节点图，实测见回归记录 | 已接入上游 Vision 节点图，实测见回归记录 |
-| ScreenCaptureKit | 系统专属 API | 已接入显示器与窗口流。录屏权限和真实画面待 M4 实测 |
+| ScreenCaptureKit | 系统专属 API | 显示器与窗口流已接入，并在 macOS 27 ARM64 通过编译。录屏权限和真实画面待 M4 实测 |
 | DirectML / TensorRT / ONNX / Core ML | 保留上游 DirectML/CUDA 构建入口。回放使用 ONNX Runtime CPU | 回放使用 ONNX Runtime CPU。Core ML 可选，依赖支持此提供程序的运行库，尚未验证加速 |
 | 目标跟踪、预测、位移输出 | 回放复用上游多目标跟踪器。实时预测、位移与实际外设待实测 | 回放复用上游多目标跟踪器。实时预测和系统输出待接入 |
 | 深度遮罩、采集与标注 | 保留上游逻辑，待实测 | 待移植 |
@@ -81,4 +81,14 @@ Windows 使用相同的构建选项，加上 `-DSAB2_PORTABLE_TESTS_ONLY=ON`、O
 - `overlay_window_geometry_regressions`
 - `workflow_mcp_protocol_regressions`
 
-[双平台 CI](https://github.com/AlexWhite1111/sab2-cross-platform/actions/runs/44700676850) 在 Windows x64 和 macOS 27 ARM64 上各通过四项核心测试和一项带跟踪输出的 CPU 回放测试。Windows 桌面版仍走 [上游构建流程](build.md)。本地尝试恢复 DirectML 依赖时出现 NuGet 下载超时，桌面版构建及实时路径尚待验证。
+验证源码提交为 [`9457ec82e85ef33c663473deb498799b9fbb2232`](https://github.com/AlexWhite1111/sab2-cross-platform/commit/9457ec82e85ef33c663473deb498799b9fbb2232)。
+
+| 环境 | 结果 |
+|---|---|
+| Windows x64 · 便携构建 | 四项核心回归和 CPU 视频回放通过。三帧得到六个检测框，框坐标、置信度、NMS 和跟踪 ID 符合样例。 |
+| macOS 27.0.1 ARM64 · 便携构建 | 四项核心回归和同一 CPU 回放样例通过。ScreenCaptureKit Objective-C++ 源码参与构建与链接。 |
+| Windows x64 · DirectML 桌面版 | 通过 [上游构建流程](build.md) 生成 `ai.exe`，通过七项回归，包括输入运行时、视觉输出和节点编辑器输入。 |
+
+[双平台回放及核心日志](https://github.com/AlexWhite1111/sab2-cross-platform/actions/runs/44702986311) · [Windows 桌面版构建和回归日志](https://github.com/AlexWhite1111/sab2-cross-platform/actions/runs/44702986171)
+
+上述测试用合成视频和样例 ONNX 验证离线输出。实时 GPU 推理、M4 录屏授权、实际输入和外设行为仍需实机验收。
