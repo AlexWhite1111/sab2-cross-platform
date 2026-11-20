@@ -12,8 +12,9 @@
 | 窗口几何计算 | 上游回归通过 | 待验证 |
 | 节点编辑器、热键、透明叠加窗 | 保留上游构建入口，交互待验证 | 待移植 |
 | DXGI / WinRT、虚拟摄像头、UDP | 保留上游逻辑，待实测 | 待移植 |
-| ScreenCaptureKit、录制视频回放 | 回放待接入 | 待接入 |
-| DirectML / TensorRT / ONNX / Core ML | 保留上游 DirectML/CUDA 构建入口，推理待实测 | 待接入 |
+| 录制视频回放 | 已接入上游 Vision 节点图，实测见回归记录 | 已接入上游 Vision 节点图，实测见回归记录 |
+| ScreenCaptureKit | 系统专属 API | 待接入 |
+| DirectML / TensorRT / ONNX / Core ML | 保留上游 DirectML/CUDA 构建入口。回放使用 ONNX Runtime CPU | 回放使用 ONNX Runtime CPU。Core ML 可选，依赖支持此提供程序的运行库，尚未验证加速 |
 | 目标跟踪、预测、位移输出 | 节点逻辑由回归覆盖，实时输入与实际外设待实测 | 实时输入和系统输出待接入 |
 | 深度遮罩、采集与标注 | 保留上游逻辑，待实测 | 待移植 |
 | 双机和外设 | 保留上游逻辑，待实测 | 待移植 |
@@ -33,6 +34,26 @@ cmake -S . -B build-port -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=ar
 cmake --build build-port --parallel
 ctest --test-dir build-port --output-on-failure
 ```
+
+## 视频回放与检测结果
+
+回放目标 `sab2_video_replay` 使用 OpenCV 4 读视频和预览，使用 ONNX Runtime 运行推理。它复用上游的 YOLO 解码器，以及 Vision 图中的置信度过滤、数量限制、NMS 等节点。当前输入为视频文件和单输入、单输出的 YOLO ONNX。输入张量要求 float32、NCHW、固定宽高。检测结果和每帧处理时间写到标准输出。处理时间从解码完成后开始计时。
+
+在 macOS ARM64 中安装 OpenCV 和 ONNX Runtime 后，执行：
+
+```sh
+cmake -S . -B build/replay -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64 \
+  -DSAB2_BUILD_REPLAY=ON -DSAB2_ONNXRUNTIME_ROOT="$(brew --prefix onnxruntime)" \
+  -DOpenCV_DIR="$(brew --prefix opencv)/lib/cmake/opencv4"
+cmake --build build/replay --target sab2_video_replay --parallel
+./build/replay/sab2_video_replay recording.avi detector.onnx > detections.csv
+```
+
+Windows 使用相同的构建选项，加上 `-DSAB2_PORTABLE_TESTS_ONLY=ON`、OpenCV 的 `OpenCV_DIR`，以及包含原生头文件和 x64 库的 ONNX Runtime 根目录。配置使用 Visual Studio 生成器时，在 build 命令中指定 `--config Release`。对于需要额外视频解码插件的 OpenCV 发行包，将其二进制目录加入当前进程的 PATH。
+
+可以传入 `--preview` 打开检测框预览，按 Esc 退出。若 ONNX Runtime 提供 Core ML，可以传入 `--coreml`。实际分配到 Apple GPU 或 Neural Engine 的模型节点需单独验证。
+
+用 Python 3.12 安装 `onnx==1.19.1` 及 `opencv-python-headless==4.12.0.88` 后，运行 `python tests/video_replay_smoke.py <sab2_video_replay路径>` 校验生成的视频和 ONNX 样例。样例验证三帧解码、六个检测框的坐标和置信度，以及重叠框抑制。它不覆盖真实训练模型精度或鼠标输出。
 
 ## 实测记录
 
