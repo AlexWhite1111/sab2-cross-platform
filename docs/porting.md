@@ -15,7 +15,7 @@
 | 节点编辑器、热键、透明叠加窗 | 保留上游构建入口，交互待验证 | 待移植 |
 | DXGI / WinRT、虚拟摄像头、UDP | 保留上游逻辑，待实测 | 待移植 |
 | 录制视频回放 | 已接入上游 Vision 节点图，实测见回归记录 | 已接入上游 Vision 节点图，实测见回归记录 |
-| ScreenCaptureKit | 系统专属 API | 待接入 |
+| ScreenCaptureKit | 系统专属 API | 已接入显示器与窗口流。录屏权限和真实画面待 M4 实测 |
 | DirectML / TensorRT / ONNX / Core ML | 保留上游 DirectML/CUDA 构建入口。回放使用 ONNX Runtime CPU | 回放使用 ONNX Runtime CPU。Core ML 可选，依赖支持此提供程序的运行库，尚未验证加速 |
 | 目标跟踪、预测、位移输出 | 回放复用上游多目标跟踪器。实时预测、位移与实际外设待实测 | 回放复用上游多目标跟踪器。实时预测和系统输出待接入 |
 | 深度遮罩、采集与标注 | 保留上游逻辑，待实测 | 待移植 |
@@ -58,6 +58,18 @@ Windows 使用相同的构建选项，加上 `-DSAB2_PORTABLE_TESTS_ONLY=ON`、O
 
 用 Python 3.12 安装 `onnx==1.19.1` 及 `opencv-python-headless==4.12.0.88` 后，运行 `python tests/video_replay_smoke.py <sab2_video_replay路径>` 校验生成的视频和 ONNX 样例。样例验证三帧解码、六个检测框的坐标和置信度、重叠框抑制及跟踪 ID 的稳定性。真实训练模型的精度、位移输出和实机权限需另行验证。
 
+## M4 的实时画面验收
+
+编译回放工具后，在终端运行 `--list-screens`。若提示缺少录屏权限，在 macOS 的「隐私与安全性」中为使用的终端授予屏幕录制权限，重新打开终端后再列出可共享目标。列表中的数字 ID 用来选择显示器或窗口。
+
+```sh
+./build/replay/sab2_video_replay --list-screens
+./build/replay/sab2_video_replay --window 123 detector.onnx --frames 10 --preview
+./build/replay/sab2_video_replay --display 1 detector.onnx --frames 10 > screen.csv
+```
+
+将示例 ID 换成列表中的实际值。测试时让目标窗口保持可见，并让画面在采集期间有变化。实时采集使用该帧的采样时间戳，上限为 60 FPS。窗口关闭或超过五秒收不到完整帧时，工具会显示错误。此入口用来验证画面到检测和跟踪的链路。桌面版节点 UI、位移输出和外设需要独立验收。[Apple ScreenCaptureKit 文档](https://developer.apple.com/documentation/screencapturekit/capturing-screen-content-in-macos)
+
 ## 实测记录
 
 2026-11-20 在 Windows 10 Pro x64（19045）使用 MSVC 19.44.35228、CMake 3.31.6-msvc6、Windows SDK 10.0.26100.0 跑通四项上游回归，CTest 报告 4/4 通过。
@@ -67,4 +79,4 @@ Windows 使用相同的构建选项，加上 `-DSAB2_PORTABLE_TESTS_ONLY=ON`、O
 - `overlay_window_geometry_regressions`
 - `workflow_mcp_protocol_regressions`
 
-[双平台 CI](https://github.com/AlexWhite1111/sab2-cross-platform/actions/runs/44699860788) 的 Windows x64 和 macOS ARM64 核心任务均通过 4/4。Windows 桌面版仍走 [上游构建流程](build.md)。本地尝试恢复 DirectML 依赖时出现 NuGet 下载超时，桌面版构建及实时路径尚待验证。
+[双平台 CI](https://github.com/AlexWhite1111/sab2-cross-platform/actions/runs/44700676850) 在 Windows x64 和 macOS 27 ARM64 上各通过四项核心测试和一项带跟踪输出的 CPU 回放测试。Windows 桌面版仍走 [上游构建流程](build.md)。本地尝试恢复 DirectML 依赖时出现 NuGet 下载超时，桌面版构建及实时路径尚待验证。

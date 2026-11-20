@@ -22,6 +22,17 @@ target_include_directories(sab2_video_replay SYSTEM PRIVATE
 target_link_libraries(sab2_video_replay PRIVATE
     "${SAB2_ONNXRUNTIME_LIBRARY}" ${OpenCV_LIBS} Threads::Threads)
 
+if(APPLE)
+    enable_language(OBJCXX)
+    set_target_properties(sab2_video_replay PROPERTIES OBJCXX_STANDARD 17 OBJCXX_STANDARD_REQUIRED ON)
+    target_sources(sab2_video_replay PRIVATE "${SRC_DIR}/portable/screen_capture_kit.mm")
+    target_compile_options(sab2_video_replay PRIVATE $<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-arc>)
+    foreach(framework Foundation CoreFoundation CoreGraphics CoreMedia CoreVideo ScreenCaptureKit)
+        find_library(SAB2_${framework}_FRAMEWORK "${framework}" REQUIRED)
+        target_link_libraries(sab2_video_replay PRIVATE "${SAB2_${framework}_FRAMEWORK}")
+    endforeach()
+endif()
+
 if(WIN32)
     target_link_libraries(sab2_video_replay PRIVATE dxgi user32)
     find_file(SAB2_ONNXRUNTIME_DLL onnxruntime.dll

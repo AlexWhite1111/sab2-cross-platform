@@ -1,6 +1,9 @@
 #include "detector/postProcess.h"
 #include "mouse/node_target_settings.h"
 #include "nodes/node_graph.h"
+#ifdef __APPLE__
+#include "portable/screen_capture_kit.h"
+#endif
 
 #include <onnxruntime_cxx_api.h>
 #include <opencv2/dnn.hpp>
@@ -8,6 +11,7 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/videoio.hpp>
 
+#include <charconv>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -25,6 +29,60 @@
 namespace
 {
 using Clock = std::chrono::steady_clock;
+
+enum class Source { Video, Display, Window };
+
+struct Options
+{
+    Source source = Source::Video;
+    std::string video;
+    std::string model;
+    std::uint32_t sourceId = 0;
+    std::uint32_t maxFrames = 0;
+    bool coreml = false;
+    bool preview = false;
+};
+
+std::uint32_t positiveNumber(std::string_view input, const char* name)
+{
+    std::uint32_t value = 0;
+    const auto end = input.data() + input.size();
+    const auto parsed = std::from_chars(input.data(), end, value);
+    if (parsed.ec != std::errc{} || parsed.ptr != end || value == 0)
+        throw std::invalid_argument(std::string("Expected a positive integer for ") + name);
+    return value;
+}
+
+Options parseOptions(int argc, char** argv)
+{
+    Options options;
+    int next = 1;
+    const std::string_view input(argv[next++]);
+    if (input == "--display" || input == "--window")
+    {
+        if (argc < 4)
+            throw std::invalid_argument("Screen capture requires a target ID and ONNX file.");
+        options.source = input == "--display" ? Source::Display : Source::Window;
+        options.sourceId = positiveNumber(argv[next++], "capture target ID");
+        options.maxFrames = 120;
+    }
+    else
+        options.video = input;
+    options.model = argv[next++];
+    while (next < argc)
+    {
+        const std::string_view option(argv[next++]);
+        if (option == "--coreml")
+            options.coreml = true;
+        else if (option == "--preview")
+            options.preview = true;
+        else if (option == "--frames" && next < argc)
+            options.maxFrames = positiveNumber(argv[next++], "frame limit");
+        else
+            throw std::invalid_argument("Invalid replay option: " + std::string(option));
+    }
+    return options;
+}
 
 class Model
 {
@@ -168,12 +226,30 @@ void report(const NodeGraph::DetectionStream& detections, const std::optional<Lo
         cv::circle(preview, {cvRound(target->target.pivotX), cvRound(target->target.pivotY)}, 3, {0, 255, 255}, -1);
 }
 
-void replay(const std::string& videoPath, const std::string& modelPath, bool coreml, bool preview)
+void replay(const Options& options)
 {
-    cv::VideoCapture video(videoPath);
-    if (!video.isOpened())
-        throw std::runtime_error("Cannot open video file: " + videoPath);
-    Model model(modelPath, coreml);
+    cv::VideoCapture video;
+    double fps = 0;
+    if (options.source == Source::Video)
+    {
+        if (!video.open(options.video))
+            throw std::runtime_error("Cannot open video file: " + options.video);
+        fps = video.get(cv::CAP_PROP_FPS);
+    }
+#ifdef __APPLE__
+    std::unique_ptr<Sab2::ScreenCaptureKit> screen;
+    std::optional<double> screenEpoch;
+    if (options.source != Source::Video)
+    {
+        const auto target = options.source == Source::Display ? Sab2::ScreenTarget::Display : Sab2::ScreenTarget::Window;
+        screen = std::make_unique<Sab2::ScreenCaptureKit>(target, options.sourceId);
+        fps = Sab2::ScreenCaptureKit::MaxFps;
+    }
+#else
+    if (options.source != Source::Video)
+        throw std::runtime_error("Display and window capture require macOS ScreenCaptureKit.");
+#endif
+    Model model(options.model, options.coreml);
 
     NodeGraph::Service graph;
     auto workspace = graph.workspace();
@@ -182,14 +258,13 @@ void replay(const std::string& videoPath, const std::string& modelPath, bool cor
             for (auto& node : page.nodes)
                 if (node.kind == NodeGraph::NodeKind::Inference)
                 {
-                    node.textParameters["model_path"] = modelPath;
-                    node.textParameters["backend"] = coreml ? "CoreML" : "CPU";
+                    node.textParameters["model_path"] = options.model;
+                    node.textParameters["backend"] = options.coreml ? "CoreML" : "CPU";
                 }
     std::string error;
     if (!graph.publish(workspace, error))
         throw std::runtime_error(error);
 
-    const double fps = video.get(cv::CAP_PROP_FPS);
     NodeGraph::Context context;
     context.captureFps = std::isfinite(fps) && fps > 0 ? fps : 60;
     context.infer = [&model](int, const auto& packet, const auto& node) { return model.infer(packet, node); };
@@ -198,9 +273,20 @@ void replay(const std::string& videoPath, const std::string& modelPath, bool cor
     std::cout << "frame,seconds,process_ms,class_id,confidence,x,y,width,height,"
         "track_id,track_observed,track_x,track_y\n" << std::setprecision(9);
     std::int64_t index = 0;
-    while (true)
+    while (options.maxFrames == 0 || index < options.maxFrames)
     {
         cv::Mat frame;
+        double seconds = index / context.captureFps;
+#ifdef __APPLE__
+        if (screen)
+        {
+            screen->read(frame, seconds);
+            if (!screenEpoch)
+                screenEpoch = seconds;
+            seconds -= *screenEpoch;
+        }
+        else
+#endif
         if (!video.read(frame))
             break;
         const auto started = Clock::now();
@@ -210,7 +296,7 @@ void replay(const std::string& videoPath, const std::string& modelPath, bool cor
         packet->height = frame.rows;
         packet->version = index;
         packet->generation = 1;
-        packet->timestampSeconds = index / context.captureFps;
+        packet->timestampSeconds = seconds;
         context.elapsedSeconds = packet->timestampSeconds;
         context.center = {frame.cols * 0.5, frame.rows * 0.5};
         context.frame = packet;
@@ -219,9 +305,9 @@ void replay(const std::string& videoPath, const std::string& modelPath, bool cor
             throw std::runtime_error("The upstream Vision graph did not publish a detection stream.");
         const auto target = track(*result.visionDetections, tracker, selection);
         const double ms = std::chrono::duration<double, std::milli>(Clock::now() - started).count();
-        cv::Mat annotated = preview ? frame.clone() : cv::Mat{};
+        cv::Mat annotated = options.preview ? frame.clone() : cv::Mat{};
         report(result.visionDetections, target, annotated, index++, packet->timestampSeconds, ms);
-        if (preview)
+        if (options.preview)
         {
             cv::imshow("SAB2 video replay", annotated);
             if (cv::waitKey(1) == 27)
@@ -235,29 +321,25 @@ void replay(const std::string& videoPath, const std::string& modelPath, bool cor
 
 int main(int argc, char** argv)
 {
-    if (argc < 3 || argc > 5)
-    {
-        std::cerr << "Usage: sab2_video_replay VIDEO ONNX [--coreml] [--preview]\n";
-        return 2;
-    }
-    bool coreml = false;
-    bool preview = false;
-    for (int i = 3; i < argc; ++i)
-    {
-        const std::string_view option(argv[i]);
-        if (option == "--coreml")
-            coreml = true;
-        else if (option == "--preview")
-            preview = true;
-        else
-        {
-            std::cerr << "Unknown option: " << option << '\n';
-            return 2;
-        }
-    }
     try
     {
-        replay(argv[1], argv[2], coreml, preview);
+        if (argc == 2 && std::string_view(argv[1]) == "--list-screens")
+        {
+#ifdef __APPLE__
+            Sab2::ScreenCaptureKit::listTargets(std::cout);
+            return 0;
+#else
+            throw std::runtime_error("Display and window capture require macOS ScreenCaptureKit.");
+#endif
+        }
+        if (argc < 3)
+        {
+            std::cerr << "Usage: sab2_video_replay VIDEO ONNX [--coreml] [--preview] [--frames N]\n"
+                "       sab2_video_replay --list-screens\n"
+                "       sab2_video_replay (--display ID | --window ID) ONNX [--coreml] [--preview] [--frames N]\n";
+            return 2;
+        }
+        replay(parseOptions(argc, argv));
         return 0;
     }
     catch (const std::exception& error)

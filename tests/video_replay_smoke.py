@@ -43,6 +43,10 @@ def make_fixture(directory):
 
 
 def test_replay(executable):
+    rejected = subprocess.run(
+        [str(executable), "--display", "invalid", "unused.onnx"], text=True, capture_output=True, timeout=10
+    )
+    assert rejected.returncode == 1 and "capture target ID" in rejected.stderr, rejected
     with tempfile.TemporaryDirectory(prefix="sab2-replay-") as directory:
         video, model = make_fixture(pathlib.Path(directory))
         run = subprocess.run([str(executable), str(video), str(model)], text=True, capture_output=True, timeout=30)
@@ -62,6 +66,11 @@ def test_replay(executable):
         assert len(track_ids) == 1 and min(track_ids) > 0, rows
         assert all(row["track_observed"] == "1" for row in rows), rows
         assert len({(row["track_x"], row["track_y"]) for row in rows}) == 1, rows
+        bounded = subprocess.run(
+            [str(executable), str(video), str(model), "--frames", "1"],
+            text=True, capture_output=True, timeout=30, check=True,
+        )
+        assert len(list(csv.DictReader(io.StringIO(bounded.stdout)))) == 2, bounded.stdout
         print("Verified 3 decoded frames, 6 output detections, class-aware NMS and a stable track ID.")
 
 
