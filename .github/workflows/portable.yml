@@ -21,8 +21,8 @@ jobs:
           - platform: Windows x64
             runner: windows-2022
             configure: '-G "Visual Studio 17 2022" -A x64'
-          - platform: macOS arm64
-            runner: macos-26
+          - platform: macOS 27 arm64
+            runner: xcode-27
             configure: '-DCMAKE_OSX_ARCHITECTURES=arm64'
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -31,6 +31,7 @@ jobs:
         run: |
           sw_vers
           test "$(uname -m)" = arm64
+          test "$(sw_vers -productVersion | cut -d. -f1)" = 27
       - name: Configure
         run: cmake -S . -B build-port ${{ matrix.configure }} -DCMAKE_BUILD_TYPE=Release -DSAB2_PORTABLE_TESTS_ONLY=ON -DBUILD_TESTING=ON
       - name: Build
@@ -48,8 +49,8 @@ jobs:
         include:
           - platform: Windows x64
             runner: windows-2022
-          - platform: macOS arm64
-            runner: macos-26
+          - platform: macOS 27 arm64
+            runner: xcode-27
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
@@ -61,11 +62,12 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           test "$(uname -m)" = arm64
-          brew install opencv onnxruntime
+          test "$(sw_vers -productVersion | cut -d. -f1)" = 27
+          brew install opencv@4 onnxruntime
           cmake -S . -B build/replay -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64 \
             -DBUILD_TESTING=OFF -DSAB2_BUILD_REPLAY=ON \
             -DSAB2_ONNXRUNTIME_ROOT="$(brew --prefix onnxruntime)" \
-            -DOpenCV_DIR="$(brew --prefix opencv)/lib/cmake/opencv4"
+            -DOpenCV_DIR="$(brew --prefix opencv@4)/lib/cmake/opencv4"
           cmake --build build/replay --target sab2_video_replay --parallel 3
           python tests/video_replay_smoke.py ./build/replay/sab2_video_replay
       - name: Build replay on Windows

@@ -4,7 +4,7 @@
 
 公开移植分支从这个上游提交的源码快照起步。应用源码和测试保持上游内容，模型目录中的两个可选二进制权重仍通过[上游该提交的模型目录](https://github.com/SunOner/sunone_aimbot_2/tree/03059d5ed2bc2b30f0140b48c01b8992b3e46ffd/sunone_aimbot_2/depth_models)获取。
 
-用户设备为 Apple M4，验收系统为 macOS 27。CI 使用 GitHub 的 macOS ARM64 runner。M4 的录屏授权、GPU / Neural Engine 分配、输入和外设行为需实机核对。
+用户设备为 Apple M4，验收系统为 macOS 27。CI 使用 [GitHub 的 xcode-27 ARM64 runner](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md)。M4 的录屏授权、GPU / Neural Engine 分配、输入和外设行为需实机核对。
 
 | 功能 | Windows | macOS Apple Silicon |
 |---|---|---|
@@ -41,12 +41,13 @@ ctest --test-dir build-port --output-on-failure
 
 回放目标 `sab2_video_replay` 使用 OpenCV 4 读视频和预览，使用 ONNX Runtime 运行推理。它复用上游的 YOLO 解码器、Vision 图中的置信度过滤、数量限制、NMS 节点，以及多目标跟踪器。当前输入为视频文件和单输入、单输出的 YOLO ONNX。输入张量要求 float32、NCHW、固定宽高。CSV 记录检测框、跟踪 ID、参考点和每帧处理时间。处理时间从解码完成后开始计时。跟踪时间按视频标称帧率计算，读不到帧率时按 60 FPS 回放。
 
-在 macOS ARM64 中安装 OpenCV 和 ONNX Runtime 后，执行：
+在 macOS ARM64 中使用 Homebrew 安装 OpenCV 4 和 ONNX Runtime 后构建。
 
 ```sh
+brew install opencv@4 onnxruntime
 cmake -S . -B build/replay -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64 \
   -DSAB2_BUILD_REPLAY=ON -DSAB2_ONNXRUNTIME_ROOT="$(brew --prefix onnxruntime)" \
-  -DOpenCV_DIR="$(brew --prefix opencv)/lib/cmake/opencv4"
+  -DOpenCV_DIR="$(brew --prefix opencv@4)/lib/cmake/opencv4"
 cmake --build build/replay --target sab2_video_replay --parallel
 ./build/replay/sab2_video_replay recording.avi detector.onnx > detections.csv
 ```
