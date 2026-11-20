@@ -1,0 +1,39 @@
+name: Portable SAB2 regression
+
+on:
+  push:
+    branches: [port/windows-macos]
+  pull_request:
+    branches: [port/windows-macos]
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    name: Core (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: Windows x64
+            runner: windows-2022
+            configure: '-G "Visual Studio 17 2022" -A x64'
+          - platform: macOS arm64
+            runner: macos-26
+            configure: '-DCMAKE_OSX_ARCHITECTURES=arm64'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Verify Apple Silicon
+        if: runner.os == 'macOS'
+        run: |
+          sw_vers
+          test "$(uname -m)" = arm64
+      - name: Configure
+        run: cmake -S . -B build-port ${{ matrix.configure }} -DCMAKE_BUILD_TYPE=Release -DSAB2_PORTABLE_TESTS_ONLY=ON -DBUILD_TESTING=ON
+      - name: Build
+        run: cmake --build build-port --config Release --parallel 3
+      - name: Test
+        run: ctest --test-dir build-port -C Release --output-on-failure --no-tests=error

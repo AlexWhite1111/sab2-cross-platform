@@ -2,6 +2,8 @@
 
 本分支以 [SunOner/sunone_aimbot_2 的 `03059d5`](https://github.com/SunOner/sunone_aimbot_2/commit/03059d5ed2bc2b30f0140b48c01b8992b3e46ffd) 为基线，保留上游 [MIT 许可](../LICENSE)。GitHub `main` 保存独立编写的 v0.1 交接原型。
 
+公开移植分支从这个上游提交的源码快照起步。应用源码和测试保持上游内容，模型目录中的两个可选二进制权重仍通过[上游该提交的模型目录](https://github.com/SunOner/sunone_aimbot_2/tree/03059d5ed2bc2b30f0140b48c01b8992b3e46ffd/sunone_aimbot_2/depth_models)获取。
+
 | 功能 | Windows | macOS Apple Silicon |
 |---|---|---|
 | 节点图计算、工作区序列化、旧版节点迁移 | 上游回归通过 | 已接入独立构建，待验证 |
