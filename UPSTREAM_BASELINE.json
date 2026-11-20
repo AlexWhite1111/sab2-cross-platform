@@ -1,0 +1,13 @@
+{
+  "upstream_repository": "https://github.com/SunOner/sunone_aimbot_2",
+  "upstream_branch": "main",
+  "observed_commit": "03059d5ed2bc2b30f0140b48c01b8992b3e46ffd",
+  "commit_date_utc": "2026-11-06T13:20:03Z",
+  "audit_date": "2026-11-19",
+  "observed_license_file": "MIT",
+  "note": "Upstream README snippets may disagree about license; the LICENSE file at this exact commit reads MIT. This archive contains independent new code, not a snapshot or merged copy of upstream.",
+  "full_parity": false,
+  "tested_macos": false,
+  "tested_windows": false,
+  "tested_linux": true
+}

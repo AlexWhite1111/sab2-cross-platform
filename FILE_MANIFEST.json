@@ -1,0 +1,94 @@
+{
+  "CMakeLists.txt": {
+    "sha256": "9dd7fa5586a973bba63ef97804e66658934b5475fe15e17c82e4e5c32baa4009",
+    "bytes": 2164
+  },
+  "LICENSE": {
+    "sha256": "9005cddbc6e9de6d27d2716e59408447f131e01d8969d8ef57b9281083a042da",
+    "bytes": 1100
+  },
+  "README.md": {
+    "sha256": "1044b8d9a4098910b04c654b2531fa22ae76f7709e81bfc0ef1a0c0cad3fce43",
+    "bytes": 4635
+  },
+  "UPSTREAM_BASELINE.json": {
+    "sha256": "29064b910e23af01e943c15f5019133875c9d73d9ed45dd4d96b293e0e44c19c",
+    "bytes": 579
+  },
+  "docs/ARCHITECTURE.md": {
+    "sha256": "2d0f1ba00dbb90233e6e469baf6d444a22f0ff7e9edfe68cdfaa3376c4e29f3f",
+    "bytes": 1789
+  },
+  "docs/PORTING_STATUS.md": {
+    "sha256": "db3929dc8b2ec3bb99e95916e758bda2644d5bddae20f5a3a708206d8e03ba20",
+    "bytes": 3120
+  },
+  "examples/synthetic_tracking.csv": {
+    "sha256": "8126560b7f6fd427fc4015f9edac5067a5cde63378e6e4217106ae0986d6e5b1",
+    "bytes": 5934
+  },
+  "include/sab2/core/controller.h": {
+    "sha256": "ace3c0f0899215d7c5291479e642064ce7d7e854c08e0b4733f7f5f0d718f607",
+    "bytes": 568
+  },
+  "include/sab2/core/tracker.h": {
+    "sha256": "d334f8312eb9ad82c513afd6bb19164324a9c8c925be7b54192c0ffc89178661",
+    "bytes": 485
+  },
+  "include/sab2/core/types.h": {
+    "sha256": "e6c89d77f3a9ec2ab54b2c9f1cb34ce4122987626d73d26f4c97d0a63f5f7368",
+    "bytes": 385
+  },
+  "include/sab2/platform/input.h": {
+    "sha256": "6ca89f6a9b99cf82a70023ab128ec2a462f0c075acda7ccb65a299d586b0ccf4",
+    "bytes": 385
+  },
+  "include/sab2/vision/opencv_pipeline.h": {
+    "sha256": "49f12a04fbff43b5c7b3090ab41b0cc1af3bc8d9e41eb5c18947e1b715fb6eca",
+    "bytes": 609
+  },
+  "scripts/build_mac.sh": {
+    "sha256": "ef173e81bbe19717e0153bfcf1447abda8f15b3fb1df68a023833b6647ecfece",
+    "bytes": 287
+  },
+  "scripts/build_windows.ps1": {
+    "sha256": "1a68a02da3d9ceac82e469100c1943572ab81468edb6de2ee4942c0e6c30262c",
+    "bytes": 386
+  },
+  "src/controller.cpp": {
+    "sha256": "7ceaf16eb9305dd006e709ff1a21e59022805e34430eb1cfc9c663bf3c59412e",
+    "bytes": 957
+  },
+  "src/input_macos.mm": {
+    "sha256": "d57e336a4361483c9a773eac23d6b0a69eb83d4af286a7d140d15d2f88399023",
+    "bytes": 1054
+  },
+  "src/input_stub.cpp": {
+    "sha256": "ad9538dfb68e4a60795d9f305eefcbdd26a2a4ea57c461d615a353ee902fc96e",
+    "bytes": 311
+  },
+  "src/input_windows.cpp": {
+    "sha256": "ab4103cf2c2716cce604938914a97c1979514d1db555b0c00cebcccbd0ec23ef",
+    "bytes": 822
+  },
+  "src/main.cpp": {
+    "sha256": "f96d9324f12784d4d5f93621239f3baf2910a2c5a08beef603b62fb0a2a8d665",
+    "bytes": 5512
+  },
+  "src/opencv_pipeline.cpp": {
+    "sha256": "b6a6936afb5a8e50faf5326ab787cdf2deb5ec8aeeaadc789e64fff794707872",
+    "bytes": 3756
+  },
+  "src/tracker.cpp": {
+    "sha256": "bd2afe6af4613a4848dad6b195232ddc561ca6145e21655c6934fdfcd5889556",
+    "bytes": 1632
+  },
+  "tests/core_tests.cpp": {
+    "sha256": "5a650e34e48fc906ec1cd1beea8b1285e21b1d599e53bc2862dfcdad0bcc741f",
+    "bytes": 1300
+  },
+  "交付说明.md": {
+    "sha256": "43e5542432f023a6962056d20524a47125b66a26d95ae6bac828db7e9e30c5f7",
+    "bytes": 2652
+  }
+}
