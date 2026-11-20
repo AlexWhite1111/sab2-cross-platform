@@ -49,22 +49,28 @@ void testPointPreviewWaitsForTargetAndShowsErrorCause()
     graph.links={{1,0,2,0},{2,0,3,0},{3,0,4,0},{4,0,5,0},{4,0,6,0},{4,0,7,0},{4,0,8,0},
         {5,0,9,0},{6,0,9,1},{7,0,9,3},{8,0,9,4},{9,0,10,1}};
     publish(service,workspace);service.setPreviewNodes({previewKey(0,10)});fixture.context.inputCaptured=true;fixture.setDetections({});service.evaluate(fixture.context);
+    const auto samplePreview=[&](std::chrono::milliseconds delay) {
+        std::this_thread::sleep_for(delay);
+        // A visible editor renews preview interest between samples.
+        service.setPreviewNodes({previewKey(0,10)});
+        service.evaluate(fixture.context);
+        return sampleNode(service.telemetry(),0,10).value;
+    };
     for(int id:{7,8,9,10})require(!sampleNode(service.telemetry(),0,id).value.valid&&sampleNode(service.telemetry(),0,id).value.error.empty(),"An absent target became a setting or preview error");
-    fixture.setDetections({{10,20,20,40,0,0.9}});std::this_thread::sleep_for(std::chrono::milliseconds(35));service.evaluate(fixture.context);
-    const auto point=sampleNode(service.telemetry(),0,10).value.preview;
+    fixture.setDetections({{10,20,20,40,0,0.9}});
+    const auto point=samplePreview(std::chrono::milliseconds(35)).preview;
     require(point&&point->width==0&&point->text.find("12.5")!=std::string::npos&&point->text.find("20")!=std::string::npos,"Project point did not reach the text preview while the editor held input");
     const auto estimate=fixture.context.estimateMotion;fixture.context.estimateMotion=[](int,Point,const Node&,bool)->MotionData{throw std::runtime_error("Velocity provider lost");};
-    std::this_thread::sleep_for(std::chrono::milliseconds(75));service.evaluate(fixture.context);
-    const auto failed=sampleNode(service.telemetry(),0,10).value;
+    const auto failed=samplePreview(std::chrono::milliseconds(75));
     require(!failed.valid&&failed.error=="Velocity provider lost"&&failed.preview&&failed.preview->text.find(failed.error)!=std::string::npos&&failed.preview->rgba.empty(),"Preview hid the upstream error cause or downloaded pixels for it");
-    const auto errorMessage=failed.preview;std::this_thread::sleep_for(std::chrono::milliseconds(35));service.evaluate(fixture.context);
-    const auto cached=sampleNode(service.telemetry(),0,10).value;
+    const auto errorMessage=failed.preview;
+    const auto cached=samplePreview(std::chrono::milliseconds(35));
     require(!cached.valid&&cached.error==failed.error&&cached.preview==errorMessage,"A throttled error preview became valid or rebuilt its text");
-    fixture.context.estimateMotion=estimate;std::this_thread::sleep_for(std::chrono::milliseconds(75));service.evaluate(fixture.context);
-    const auto recovered=sampleNode(service.telemetry(),0,10).value;
+    fixture.context.estimateMotion=estimate;
+    const auto recovered=samplePreview(std::chrono::milliseconds(75));
     require(recovered.valid&&recovered.error.empty()&&recovered.preview&&recovered.preview->text==point->text,"Unchanged point data retained a stale error preview after recovery");
-    fixture.setDetections({});std::this_thread::sleep_for(std::chrono::milliseconds(75));service.evaluate(fixture.context);
-    const auto waiting=sampleNode(service.telemetry(),0,10).value;
+    fixture.setDetections({});
+    const auto waiting=samplePreview(std::chrono::milliseconds(75));
     require(!waiting.valid&&waiting.error.empty()&&!waiting.preview,"A lost target retained an error or the last valid coordinates");
 }
 void testUniversalPreviewAcceptsValuesInEveryWorkflow()
